@@ -4,12 +4,12 @@ import (
 	"flag"
 	"fmt"
 	. "launchpad.net/gocheck"
-	"http"
 	"launchpad.net/goamz/aws"
 	"os"
 	"testing"
 	"time"
-	"url"
+	"net/http"
+	"net/url"
 )
 
 func Test(t *testing.T) {

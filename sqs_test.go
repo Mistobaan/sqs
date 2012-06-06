@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"launchpad.net/gocheck"
 	"launchpad.net/goamz/aws"
-	"launchpad.net/goamz/sqs"
+    "sqs"
 )
 
 var _ = gocheck.Suite(&S{})
