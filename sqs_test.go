@@ -81,7 +81,7 @@ func (s *S) TestSendMessage(c *gocheck.C) {
 	msg := "This is a test message"
 	var h hash.Hash = md5.New()
 	h.Write([]byte(msg))
-	c.Assert(resp.MD5, gocheck.Equals, fmt.Sprintf("%x", h.Sum()))
+	c.Assert(resp.MD5, gocheck.Equals, fmt.Sprintf("%x", h.Sum(nil)))
 	c.Assert(resp.Id, gocheck.Equals, "5fea7756-0ea4-451a-a703-a558b933e274")
 	c.Assert(err, gocheck.IsNil)
 }

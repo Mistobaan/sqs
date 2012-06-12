@@ -52,15 +52,15 @@ type GetQueueUrlResponse struct {
 
 type ListQueuesResponse struct {
 	QueueUrl []string `xml:"ListQueuesResult>QueueUrl"`
-	ResponseMetadata
+	ResponseMetadata ResponseMetadata
 }
 
 type DeleteMessageResponse struct {
-	ResponseMetadata
+	ResponseMetadata ResponseMetadata
 }
 
 type DeleteQueueResponse struct {
-	ResponseMetadata
+	ResponseMetadata ResponseMetadata
 }
 
 type SendMessageResponse struct {
@@ -88,7 +88,7 @@ type Attribute struct {
 }
 
 type ChangeMessageVisibilityResponse struct {
-	ResponseMetadata
+	ResponseMetadata ResponseMetadata
 }
 
 type GetQueueAttributesResponse struct {
@@ -123,6 +123,7 @@ func (err *Error) String() string {
 type xmlErrors struct {
 	RequestId string
 	Errors    []Error `xml:"Errors>Error"`
+    Error Error
 }
 
 func (s *SQS) CreateQueue(queueName string) (*Queue, error) {
@@ -204,13 +205,13 @@ func (q *Queue) SendMessage(MessageBody string) (resp *SendMessageResponse, err 
 	return
 }
 
-func (q *Queue) ReceiveMessage(MaxNumberOfMessages, VisibilityTimeout int) (resp *ReceiveMessageResponse, err error) {
+func (q *Queue) ReceiveMessage(MaxNumberOfMessages, VisibilityTimeoutSec int) (resp *ReceiveMessageResponse, err error) {
 	resp = &ReceiveMessageResponse{}
 	params := makeParams("ReceiveMessage")
 
 	params["AttributeName"] = "All"
 	params["MaxNumberOfMessages"] = strconv.Itoa(MaxNumberOfMessages)
-	params["VisibilityTimeout"] = strconv.Itoa(VisibilityTimeout)
+	params["VisibilityTimeout"] = strconv.Itoa(VisibilityTimeoutSec)
 
 	err = q.SQS.query(q.Url, params, resp)
 	return
@@ -299,7 +300,9 @@ func buildError(r *http.Response) error {
 	var err Error
 	if len(errors.Errors) > 0 {
 		err = errors.Errors[0]
-	}
+	} else {
+        err = errors.Error
+    }
 	err.RequestId = errors.RequestId
 	err.StatusCode = r.StatusCode
 	if err.Message == "" {

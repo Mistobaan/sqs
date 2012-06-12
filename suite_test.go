@@ -28,7 +28,7 @@ func (s *SuiteI) SetUpSuite(c *C) {
 	}
 	auth, err := aws.EnvAuth()
 	if err != nil {
-		c.Fatal(err.String())
+		c.Fatal(err.Error())
 	}
 	s.auth = auth
 }
@@ -47,7 +47,7 @@ func (s *HTTPSuite) TearDownTest(c *C) {
 
 type TestHTTPServer struct {
 	URL      string
-	Timeout  int64
+	Timeout  time.Duration
 	started  bool
 	request  chan *http.Request
 	response chan *testResponse
@@ -60,7 +60,7 @@ type testResponse struct {
 	Body    string
 }
 
-func NewTestHTTPServer(url string, timeout int64) *TestHTTPServer {
+func NewTestHTTPServer(url string, timeout time.Duration) *TestHTTPServer {
 	return &TestHTTPServer{URL: url, Timeout: timeout}
 }
 
