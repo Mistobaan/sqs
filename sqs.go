@@ -284,7 +284,7 @@ type DeleteMessageBatchResponse struct {
 }
 
 /* DeleteMessageBatch */
-func (q *Queue) DeleteMessageBatch(msgList []*Message) (resp *DeleteMessageBatchResponse, err error) {
+func (q *Queue) DeleteMessageBatch(msgList []Message) (resp *DeleteMessageBatchResponse, err error) {
 	resp = &DeleteMessageBatchResponse{}
 	params := makeParams("DeleteMessageBatch")
 
