@@ -91,7 +91,7 @@ func (s *S) TestSendMessageBatch(c *gocheck.C) {
 
 	q := &sqs.Queue{s.sqs, testServer.URL + "/123456789012/testQueue/"}
 
-	msgList := []string{"test message body 1", "test message body 2" } 
+	msgList := []string{"test message body 1", "test message body 2"}
 	resp, err := q.SendMessageBatch(msgList)
 	req := testServer.WaitRequest()
 
@@ -101,9 +101,32 @@ func (s *S) TestSendMessageBatch(c *gocheck.C) {
 
 	for idx, msg := range msgList {
 		var h hash.Hash = md5.New()
-		h.Write([]byte(msg))		
+		h.Write([]byte(msg))
 		c.Assert(resp.SendMessageBatchResult[idx].MD5OfMessageBody, gocheck.Equals, fmt.Sprintf("%x", h.Sum(nil)))
 		c.Assert(err, gocheck.IsNil)
+	}
+}
+
+
+func (s *S) TestDeleteMessageBatch(c *gocheck.C) {
+	testServer.PrepareResponse(200, nil, TestDeleteMessageBatchXmlOK)
+
+	q := &sqs.Queue{s.sqs, testServer.URL + "/123456789012/testQueue/"}
+
+	msgList := []*sqs.Message{&sqs.Message{ReceiptHandle: "gfk0T0R0waama4fVFffkjPQrrvzMrOg0fTFk2LxT33EuB8wR0ZCFgKWyXGWFoqqpCIiprQUEhir%2F5LeGPpYTLzjqLQxyQYaQALeSNHb0us3uE84uujxpBhsDkZUQkjFFkNqBXn48xlMcVhTcI3YLH%2Bd%2BIqetIOHgBCZAPx6r%2B09dWaBXei6nbK5Ygih21DCDdAwFV68Jo8DXhb3ErEfoDqx7vyvC5nCpdwqv%2BJhU%2FTNGjNN8t51v5c%2FAXvQsAzyZVNapxUrHIt4NxRhKJ72uICcxruyE8eRXlxIVNgeNP8ZEDcw7zZU1Zw%3D%3D"},
+		&sqs.Message{ReceiptHandle: "gfk0T0R0waama4fVFffkjKzmhMCymjQvfTFk2LxT33G4ms5subrE0deLKWSscPU1oD3J9zgeS4PQQ3U30qOumIE6AdAv3w%2F%2Fa1IXW6AqaWhGsEPaLm3Vf6IiWqdM8u5imB%2BNTwj3tQRzOWdTOePjOjPcTpRxBtXix%2BEvwJOZUma9wabv%2BSw6ZHjwmNcVDx8dZXJhVp16Bksiox%2FGrUvrVTCJRTWTLc59oHLLF8sEkKzRmGNzTDGTiV%2BYjHfQj60FD3rVaXmzTsoNxRhKJ72uIHVMGVQiAGgB%2BqAbSqfKHDQtVOmJJgkHug%3D%3D"},
+	}
+
+	resp, err := q.DeleteMessageBatch(msgList)
+	c.Assert(err, gocheck.IsNil)
+	req := testServer.WaitRequest()
+
+	c.Assert(req.Method, gocheck.Equals, "GET")
+	c.Assert(req.URL.Path, gocheck.Equals, "/123456789012/testQueue/")
+	c.Assert(req.Header["Date"], gocheck.Not(gocheck.Equals), "")
+
+	for idx, _ := range msgList {
+		c.Assert(resp.DeleteMessageBatchResult[idx].Id, gocheck.Equals, fmt.Sprintf("msg%d", idx+1))
 	}
 }
 

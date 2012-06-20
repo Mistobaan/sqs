@@ -254,7 +254,7 @@ type SendMessageBatchResultEntry struct {
 
 type SendMessageBatchResponse struct {
 	SendMessageBatchResult []SendMessageBatchResultEntry `xml:"SendMessageBatchResult>SendMessageBatchResultEntry"`
-	ResponseMetadata ResponseMetadata
+	ResponseMetadata       ResponseMetadata
 }
 
 /* SendMessageBatch 
@@ -279,7 +279,7 @@ type DeleteMessageBatchResponse struct {
 		SenderFault bool
 		Code        string
 		Message     string
-	}                `xml:"DeleteMessageBatchResult>DeleteMessageBatchEntry"`
+	}                `xml:"DeleteMessageBatchResult>DeleteMessageBatchResultEntry"`
 	ResponseMetadata ResponseMetadata
 }
 
