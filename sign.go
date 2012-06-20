@@ -2,7 +2,7 @@ package sqs
 
 import (
 	"crypto/hmac"
-    "crypto/sha256"
+	"crypto/sha256"
 	"encoding/base64"
 	"launchpad.net/goamz/aws"
 	"sort"
@@ -23,7 +23,7 @@ func sign(auth aws.Auth, method, path string, params map[string]string, host str
 	sort.StringSlice(sarray).Sort()
 	joined := strings.Join(sarray, "&")
 	payload := method + "\n" + host + "\n" + path + "\n" + joined
-	hash := hmac.New( sha256.New, []byte(auth.SecretKey))
+	hash := hmac.New(sha256.New, []byte(auth.SecretKey))
 	hash.Write([]byte(payload))
 	signature := make([]byte, b64.EncodedLen(hash.Size()))
 	b64.Encode(signature, hash.Sum(nil))

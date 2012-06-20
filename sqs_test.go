@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"launchpad.net/gocheck"
 	"launchpad.net/goamz/aws"
-    "sqs"
+	"sqs"
 )
 
 var _ = gocheck.Suite(&S{})
@@ -84,6 +84,27 @@ func (s *S) TestSendMessage(c *gocheck.C) {
 	c.Assert(resp.MD5, gocheck.Equals, fmt.Sprintf("%x", h.Sum(nil)))
 	c.Assert(resp.Id, gocheck.Equals, "5fea7756-0ea4-451a-a703-a558b933e274")
 	c.Assert(err, gocheck.IsNil)
+}
+
+func (s *S) TestSendMessageBatch(c *gocheck.C) {
+	testServer.PrepareResponse(200, nil, TestSendMessageBatchXmlOk)
+
+	q := &sqs.Queue{s.sqs, testServer.URL + "/123456789012/testQueue/"}
+
+	msgList := []string{"test message body 1", "test message body 2" } 
+	resp, err := q.SendMessageBatch(msgList)
+	req := testServer.WaitRequest()
+
+	c.Assert(req.Method, gocheck.Equals, "GET")
+	c.Assert(req.URL.Path, gocheck.Equals, "/123456789012/testQueue/")
+	c.Assert(req.Header["Date"], gocheck.Not(gocheck.Equals), "")
+
+	for idx, msg := range msgList {
+		var h hash.Hash = md5.New()
+		h.Write([]byte(msg))		
+		c.Assert(resp.SendMessageBatchResult[idx].MD5OfMessageBody, gocheck.Equals, fmt.Sprintf("%x", h.Sum(nil)))
+		c.Assert(err, gocheck.IsNil)
+	}
 }
 
 func (s *S) TestReceiveMessage(c *gocheck.C) {

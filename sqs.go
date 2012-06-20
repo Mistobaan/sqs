@@ -15,8 +15,8 @@ import (
 	"encoding/xml"
 	"net/url"
 	"time"
-    "fmt"
-    "log"
+	"fmt"
+	"log"
 	"strconv"
 	"launchpad.net/goamz/aws"
 )
@@ -41,17 +41,17 @@ type Queue struct {
 }
 
 type CreateQueueResponse struct {
-	QueueUrl string `xml:"CreateQueueResult>QueueUrl"`
-	ResponseMetadata
+	QueueUrl         string `xml:"CreateQueueResult>QueueUrl"`
+	ResponseMetadata ResponseMetadata
 }
 
 type GetQueueUrlResponse struct {
-	QueueUrl string `xml:"GetQueueUrlResult>QueueUrl"`
-	ResponseMetadata
+	QueueUrl         string `xml:"GetQueueUrlResult>QueueUrl"`
+	ResponseMetadata ResponseMetadata
 }
 
 type ListQueuesResponse struct {
-	QueueUrl []string `xml:"ListQueuesResult>QueueUrl"`
+	QueueUrl         []string `xml:"ListQueuesResult>QueueUrl"`
 	ResponseMetadata ResponseMetadata
 }
 
@@ -59,19 +59,20 @@ type DeleteMessageResponse struct {
 	ResponseMetadata ResponseMetadata
 }
 
+
 type DeleteQueueResponse struct {
 	ResponseMetadata ResponseMetadata
 }
 
 type SendMessageResponse struct {
-	MD5 string `xml:"SendMessageResult>MD5OfMessageBody"`
-	Id  string `xml:"SendMessageResult>MessageId"`
-	ResponseMetadata
+	MD5              string `xml:"SendMessageResult>MD5OfMessageBody"`
+	Id               string `xml:"SendMessageResult>MessageId"`
+	ResponseMetadata ResponseMetadata
 }
 
 type ReceiveMessageResponse struct {
-	Messages []Message `xml:"ReceiveMessageResult>Message"`
-	ResponseMetadata
+	Messages         []Message `xml:"ReceiveMessageResult>Message"`
+	ResponseMetadata ResponseMetadata
 }
 
 type Message struct {
@@ -92,8 +93,8 @@ type ChangeMessageVisibilityResponse struct {
 }
 
 type GetQueueAttributesResponse struct {
-	Attributes []Attribute `xml:"GetQueueAttributesResult>Attribute"`
-	ResponseMetadata
+	Attributes       []Attribute `xml:"GetQueueAttributesResult>Attribute"`
+	ResponseMetadata ResponseMetadata
 }
 
 type ResponseMetadata struct {
@@ -123,7 +124,7 @@ func (err *Error) String() string {
 type xmlErrors struct {
 	RequestId string
 	Errors    []Error `xml:"Errors>Error"`
-    Error Error
+	Error     Error
 }
 
 func (s *SQS) CreateQueue(queueName string) (*Queue, error) {
@@ -139,20 +140,20 @@ func (s *SQS) CreateQueueWithTimeout(queueName string, timeout int) (q *Queue, e
 	return
 }
 
-func (s *SQS) GetQueue(queueName string) (*Queue, error){
-     var q *Queue
-     resp, err := s.getQueueUrl(queueName)
-     if err != nil {
-        return q, err
-     } 
-     q = &Queue{ s, resp.QueueUrl }
-     return q, nil
+func (s *SQS) GetQueue(queueName string) (*Queue, error) {
+	var q *Queue
+	resp, err := s.getQueueUrl(queueName)
+	if err != nil {
+		return q, err
+	}
+	q = &Queue{s, resp.QueueUrl}
+	return q, nil
 }
 
 
 func (s *SQS) QueueFromArn(queueUrl string) (q *Queue) {
-    q = &Queue{s, queueUrl}
-    return
+	q = &Queue{s, queueUrl}
+	return
 }
 
 
@@ -245,8 +246,60 @@ func (q *Queue) DeleteMessage(M *Message) (resp *DeleteMessageResponse, err erro
 	return
 }
 
+type SendMessageBatchResultEntry struct {
+	Id               string `xml:"Id"`
+	MessageId        string `xml:"MessageId"`
+	MD5OfMessageBody string `xml:"MD5OfMessageBody"`
+}
+
+type SendMessageBatchResponse struct {
+	SendMessageBatchResult []SendMessageBatchResultEntry `xml:"SendMessageBatchResult>SendMessageBatchResultEntry"`
+	ResponseMetadata ResponseMetadata
+}
+
+/* SendMessageBatch 
+ */
+func (q *Queue) SendMessageBatch(msgList []string) (resp *SendMessageBatchResponse, err error) {
+	resp = &SendMessageBatchResponse{}
+	params := makeParams("SendMessageBatch")
+
+	for idx, msg := range msgList {
+		count := idx + 1
+		params[fmt.Sprintf("SendMessageBatchRequestEntry.%d.Id", count)] = fmt.Sprintf("msg-%d", count)
+		params[fmt.Sprintf("SendMessageBatchRequestEntry.%d.MessageBody", count)] = msg
+	}
+
+	err = q.SQS.query(q.Url, params, resp)
+	return
+}
+
+type DeleteMessageBatchResponse struct {
+	DeleteMessageBatchResult []struct {
+		Id          string
+		SenderFault bool
+		Code        string
+		Message     string
+	}                `xml:"DeleteMessageBatchResult>DeleteMessageBatchEntry"`
+	ResponseMetadata ResponseMetadata
+}
+
+/* DeleteMessageBatch */
+func (q *Queue) DeleteMessageBatch(msgList []*Message) (resp *DeleteMessageBatchResponse, err error) {
+	resp = &DeleteMessageBatchResponse{}
+	params := makeParams("DeleteMessageBatch")
+
+	for idx, msg := range msgList {
+		idx = idx + 1
+		params[fmt.Sprintf("DeleteMessageBatchRequestEntry.%d.Id", idx)] = fmt.Sprintf("msg-%d", idx)
+		params[fmt.Sprintf("DeleteMessageBatchRequestEntry.%d.ReceiptHandle", idx)] = msg.ReceiptHandle
+	}
+
+	err = q.SQS.query(q.Url, params, resp)
+	return
+}
+
 func (s *SQS) query(queueUrl string, params map[string]string, resp interface{}) (err error) {
-    params["Version"] = "2011-10-01"
+	params["Version"] = "2011-10-01"
 	params["Timestamp"] = time.Now().In(time.UTC).Format(time.RFC3339)
 	var url_ *url.URL
 
@@ -271,9 +324,9 @@ func (s *SQS) query(queueUrl string, params map[string]string, resp interface{})
 
 	url_.RawQuery = multimap(params).Encode()
 
-    if debug {
-       log.Printf("GET ", url_.String())
-    }
+	if debug {
+		log.Printf("GET ", url_.String())
+	}
 
 	r, err := http.Get(url_.String())
 	if err != nil {
@@ -281,10 +334,10 @@ func (s *SQS) query(queueUrl string, params map[string]string, resp interface{})
 	}
 
 	defer r.Body.Close()
-    
-    if debug {
-	   dump, _ := httputil.DumpResponse(r, true)
-	   log.Printf("DUMP:\n", string(dump))
+
+	if debug {
+		dump, _ := httputil.DumpResponse(r, true)
+		log.Printf("DUMP:\n", string(dump))
 	}
 
 	if r.StatusCode != 200 {
@@ -301,8 +354,8 @@ func buildError(r *http.Response) error {
 	if len(errors.Errors) > 0 {
 		err = errors.Errors[0]
 	} else {
-        err = errors.Error
-    }
+		err = errors.Error
+	}
 	err.RequestId = errors.RequestId
 	err.StatusCode = r.StatusCode
 	if err.Message == "" {
