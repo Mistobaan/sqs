@@ -206,13 +206,26 @@ func (q *Queue) SendMessage(MessageBody string) (resp *SendMessageResponse, err 
 	return
 }
 
-func (q *Queue) ReceiveMessage(MaxNumberOfMessages, VisibilityTimeoutSec int) (resp *ReceiveMessageResponse, err error) {
+// ReceiveMessageWithVisibilityTimeout 
+func (q *Queue) ReceiveMessageWithVisibilityTimeout(MaxNumberOfMessages, VisibilityTimeoutSec int) (resp *ReceiveMessageResponse, err error) {
 	resp = &ReceiveMessageResponse{}
 	params := makeParams("ReceiveMessage")
 
 	params["AttributeName"] = "All"
 	params["MaxNumberOfMessages"] = strconv.Itoa(MaxNumberOfMessages)
 	params["VisibilityTimeout"] = strconv.Itoa(VisibilityTimeoutSec)
+
+	err = q.SQS.query(q.Url, params, resp)
+	return
+}
+
+// ReceiveMessage 
+func (q *Queue) ReceiveMessage(MaxNumberOfMessages int) (resp *ReceiveMessageResponse, err error) {
+	resp = &ReceiveMessageResponse{}
+	params := makeParams("ReceiveMessage")
+
+	params["AttributeName"] = "All"
+	params["MaxNumberOfMessages"] = strconv.Itoa(MaxNumberOfMessages)
 
 	err = q.SQS.query(q.Url, params, resp)
 	return
@@ -288,13 +301,32 @@ func (q *Queue) DeleteMessageBatch(msgList []Message) (resp *DeleteMessageBatchR
 	resp = &DeleteMessageBatchResponse{}
 	params := makeParams("DeleteMessageBatch")
 
-	for idx, msg := range msgList {
-		idx = idx + 1
-		params[fmt.Sprintf("DeleteMessageBatchRequestEntry.%d.Id", idx)] = fmt.Sprintf("msg-%d", idx)
-		params[fmt.Sprintf("DeleteMessageBatchRequestEntry.%d.ReceiptHandle", idx)] = msg.ReceiptHandle
+	lutMsg := make(map[string]Message)
+
+	for idx := range msgList {
+		params[fmt.Sprintf("DeleteMessageBatchRequestEntry.%d.Id", idx+1)] = msgList[idx].MessageId
+		params[fmt.Sprintf("DeleteMessageBatchRequestEntry.%d.ReceiptHandle", idx+1)] = msgList[idx].ReceiptHandle
+
+		lutMsg[string(msgList[idx].MessageId)] = msgList[idx]
 	}
 
 	err = q.SQS.query(q.Url, params, resp)
+
+	messageWithErrors := make([]Message, 0, len(msgList))
+
+	for idx := range resp.DeleteMessageBatchResult {
+		if resp.DeleteMessageBatchResult[idx].SenderFault {
+			msg, ok := lutMsg[resp.DeleteMessageBatchResult[idx].Id]
+			if ok {
+				messageWithErrors = append(messageWithErrors, msg)
+			}
+		}
+	}
+
+	if len(messageWithErrors) > 0 {
+		log.Printf("%d Message have not been sent", len(messageWithErrors))
+	}
+
 	return
 }
 
