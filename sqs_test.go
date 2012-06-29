@@ -92,7 +92,7 @@ func (s *S) TestSendMessageBatch(c *gocheck.C) {
 	q := &sqs.Queue{s.sqs, testServer.URL + "/123456789012/testQueue/"}
 
 	msgList := []string{"test message body 1", "test message body 2"}
-	resp, err := q.SendMessageBatch(msgList)
+	resp, err := q.SendMessageBatchString(msgList)
 	req := testServer.WaitRequest()
 
 	c.Assert(req.Method, gocheck.Equals, "GET")
@@ -134,7 +134,7 @@ func (s *S) TestReceiveMessage(c *gocheck.C) {
 	testServer.PrepareResponse(200, nil, TestReceiveMessageXmlOK)
 
 	q := &sqs.Queue{s.sqs, testServer.URL + "/123456789012/testQueue/"}
-	resp, err := q.ReceiveMessage(5, 30)
+	resp, err := q.ReceiveMessage(5)
 	req := testServer.WaitRequest()
 
 	c.Assert(req.Method, gocheck.Equals, "GET")
@@ -155,7 +155,7 @@ func (s *S) TestChangeMessageVisibility(c *gocheck.C) {
 
 	q := &sqs.Queue{s.sqs, testServer.URL + "/123456789012/testQueue/"}
 
-	resp1, err := q.ReceiveMessage(1, 30)
+	resp1, err := q.ReceiveMessage(1)
 	req := testServer.WaitRequest()
 
 	testServer.PrepareResponse(200, nil, TestChangeMessageVisibilityXmlOK)
