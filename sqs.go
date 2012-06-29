@@ -19,6 +19,7 @@ import (
 	"log"
 	"strconv"
 	"launchpad.net/goamz/aws"
+	"errors"
 )
 
 const debug = false
@@ -29,6 +30,26 @@ type SQS struct {
 	aws.Auth
 	aws.Region
 	private byte // Reserve the right of using private data.
+}
+
+func NewFrom(accessKey, secretKey, region string) (*SQS, error) {
+
+	auth := aws.Auth{accessKey, secretKey}
+	aws_region := aws.USEast
+
+	switch region {
+	case "us.east":
+		aws_region = aws.USEast
+	case "us.west":
+		aws_region = aws.USWest
+	case "eu.west":
+		aws_region = aws.EUWest
+	default:
+		return nil, errors.New(fmt.Sprintf("Unknow/Unsupported region %s", region))
+	}
+
+	aws_sqs := New(auth, aws_region)
+	return aws_sqs, nil
 }
 
 func New(auth aws.Auth, region aws.Region) *SQS {
@@ -272,7 +293,23 @@ type SendMessageBatchResponse struct {
 
 /* SendMessageBatch 
  */
-func (q *Queue) SendMessageBatch(msgList []string) (resp *SendMessageBatchResponse, err error) {
+func (q *Queue) SendMessageBatch(msgList []Message) (resp *SendMessageBatchResponse, err error) {
+	resp = &SendMessageBatchResponse{}
+	params := makeParams("SendMessageBatch")
+
+	for idx, msg := range msgList {
+		count := idx + 1
+		params[fmt.Sprintf("SendMessageBatchRequestEntry.%d.Id", count)] = fmt.Sprintf("msg-%d", count)
+		params[fmt.Sprintf("SendMessageBatchRequestEntry.%d.MessageBody", count)] = msg.Body
+	}
+
+	err = q.SQS.query(q.Url, params, resp)
+	return
+}
+
+/* SendMessageBatchString 
+ */
+func (q *Queue) SendMessageBatchString(msgList []string) (resp *SendMessageBatchResponse, err error) {
 	resp = &SendMessageBatchResponse{}
 	params := makeParams("SendMessageBatch")
 
