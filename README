@@ -1,13 +1,11 @@
 Amazon Simple Queue Service API Written in Golang.
 
 
-Installation
-------------
+# Installation
 
-go get https://github.com/Mistobaan/sqs.git
+   go get github.com/Mistobaan/sqs
 
 
-Testing
--------
+# Testing
 
-go test sqs 
+   go test github.com/Mistobaan/sqs
