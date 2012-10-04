@@ -10,20 +10,46 @@
 package sqs
 
 import (
-	"http"
-	"xml"
-	"url"
-	"os"
+	"net/http"
+	"net/http/httputil"
+	"encoding/xml"
+	"net/url"
 	"time"
+	"fmt"
+	"log"
 	"strconv"
 	"launchpad.net/goamz/aws"
+	"errors"
 )
+
+const debug = false
+
 
 // The SQS type encapsulates operation with an SQS region.
 type SQS struct {
 	aws.Auth
 	aws.Region
 	private byte // Reserve the right of using private data.
+}
+
+func NewFrom(accessKey, secretKey, region string) (*SQS, error) {
+
+	auth := aws.Auth{accessKey, secretKey}
+	aws_region := aws.USEast
+
+	switch region {
+	case "us.east":
+		aws_region = aws.USEast
+	case "us.west":
+		aws_region = aws.USWest
+	case "eu.west":
+		aws_region = aws.EUWest
+	default:
+		return nil, errors.New(fmt.Sprintf("Unknow/Unsupported region %s", region))
+	}
+
+	aws_sqs := New(auth, aws_region)
+	return aws_sqs, nil
 }
 
 func New(auth aws.Auth, region aws.Region) *SQS {
@@ -36,32 +62,38 @@ type Queue struct {
 }
 
 type CreateQueueResponse struct {
-	QueueUrl string `xml:"CreateQueueResult>QueueUrl"`
-	ResponseMetadata
+	QueueUrl         string `xml:"CreateQueueResult>QueueUrl"`
+	ResponseMetadata ResponseMetadata
+}
+
+type GetQueueUrlResponse struct {
+	QueueUrl         string `xml:"GetQueueUrlResult>QueueUrl"`
+	ResponseMetadata ResponseMetadata
 }
 
 type ListQueuesResponse struct {
-	QueueUrl []string `xml:"ListQueuesResult>QueueUrl"`
-	ResponseMetadata
+	QueueUrl         []string `xml:"ListQueuesResult>QueueUrl"`
+	ResponseMetadata ResponseMetadata
 }
 
 type DeleteMessageResponse struct {
-	ResponseMetadata
+	ResponseMetadata ResponseMetadata
 }
 
+
 type DeleteQueueResponse struct {
-	ResponseMetadata
+	ResponseMetadata ResponseMetadata
 }
 
 type SendMessageResponse struct {
-	MD5 string `xml:"SendMessageResult>MD5OfMessageBody"`
-	Id  string `xml:"SendMessageResult>MessageId"`
-	ResponseMetadata
+	MD5              string `xml:"SendMessageResult>MD5OfMessageBody"`
+	Id               string `xml:"SendMessageResult>MessageId"`
+	ResponseMetadata ResponseMetadata
 }
 
 type ReceiveMessageResponse struct {
-	Messages []Message `xml:"ReceiveMessageResult>Message"`
-	ResponseMetadata
+	Messages         []Message `xml:"ReceiveMessageResult>Message"`
+	ResponseMetadata ResponseMetadata
 }
 
 type Message struct {
@@ -78,12 +110,12 @@ type Attribute struct {
 }
 
 type ChangeMessageVisibilityResponse struct {
-	ResponseMetadata
+	ResponseMetadata ResponseMetadata
 }
 
 type GetQueueAttributesResponse struct {
-	Attributes []Attribute `xml:"GetQueueAttributesResult>Attribute"`
-	ResponseMetadata
+	Attributes       []Attribute `xml:"GetQueueAttributesResult>Attribute"`
+	ResponseMetadata ResponseMetadata
 }
 
 type ResponseMetadata struct {
@@ -98,6 +130,14 @@ type Error struct {
 	RequestId  string
 }
 
+func (err *Error) Error() string {
+	if err.Code == "" {
+		return err.Message
+	}
+	return fmt.Sprintf("%s (%s)", err.Message, err.Code)
+}
+
+
 func (err *Error) String() string {
 	return err.Message
 }
@@ -105,13 +145,14 @@ func (err *Error) String() string {
 type xmlErrors struct {
 	RequestId string
 	Errors    []Error `xml:"Errors>Error"`
+	Error     Error
 }
 
-func (s *SQS) CreateQueue(queueName string) (*Queue, os.Error) {
+func (s *SQS) CreateQueue(queueName string) (*Queue, error) {
 	return s.CreateQueueWithTimeout(queueName, 30)
 }
 
-func (s *SQS) CreateQueueWithTimeout(queueName string, timeout int) (q *Queue, err os.Error) {
+func (s *SQS) CreateQueueWithTimeout(queueName string, timeout int) (q *Queue, err error) {
 	resp, err := s.newQueue(queueName, timeout)
 	if err != nil {
 		return nil, err
@@ -120,12 +161,32 @@ func (s *SQS) CreateQueueWithTimeout(queueName string, timeout int) (q *Queue, e
 	return
 }
 
-func (s *SQS) QueueFromArn(queueUrl string) (q *Queue) {
-    q = &Queue{s, queueUrl}
-    return
+func (s *SQS) GetQueue(queueName string) (*Queue, error) {
+	var q *Queue
+	resp, err := s.getQueueUrl(queueName)
+	if err != nil {
+		return q, err
+	}
+	q = &Queue{s, resp.QueueUrl}
+	return q, nil
 }
 
-func (s *SQS) newQueue(queueName string, timeout int) (resp *CreateQueueResponse, err os.Error) {
+
+func (s *SQS) QueueFromArn(queueUrl string) (q *Queue) {
+	q = &Queue{s, queueUrl}
+	return
+}
+
+
+func (s *SQS) getQueueUrl(queueName string) (resp *GetQueueUrlResponse, err error) {
+	resp = &GetQueueUrlResponse{}
+	params := makeParams("GetQueueUrl")
+	params["QueueName"] = queueName
+	err = s.query("", params, resp)
+	return resp, err
+}
+
+func (s *SQS) newQueue(queueName string, timeout int) (resp *CreateQueueResponse, err error) {
 	resp = &CreateQueueResponse{}
 	params := makeParams("CreateQueue")
 
@@ -136,7 +197,7 @@ func (s *SQS) newQueue(queueName string, timeout int) (resp *CreateQueueResponse
 	return
 }
 
-func (s *SQS) ListQueues(QueueNamePrefix string) (resp *ListQueuesResponse, err os.Error) {
+func (s *SQS) ListQueues(QueueNamePrefix string) (resp *ListQueuesResponse, err error) {
 	resp = &ListQueuesResponse{}
 	params := makeParams("ListQueues")
 
@@ -148,7 +209,7 @@ func (s *SQS) ListQueues(QueueNamePrefix string) (resp *ListQueuesResponse, err 
 	return
 }
 
-func (q *Queue) Delete() (resp *DeleteQueueResponse, err os.Error) {
+func (q *Queue) Delete() (resp *DeleteQueueResponse, err error) {
 	resp = &DeleteQueueResponse{}
 	params := makeParams("DeleteQueue")
 
@@ -156,7 +217,7 @@ func (q *Queue) Delete() (resp *DeleteQueueResponse, err os.Error) {
 	return
 }
 
-func (q *Queue) SendMessage(MessageBody string) (resp *SendMessageResponse, err os.Error) {
+func (q *Queue) SendMessage(MessageBody string) (resp *SendMessageResponse, err error) {
 	resp = &SendMessageResponse{}
 	params := makeParams("SendMessage")
 
@@ -166,19 +227,32 @@ func (q *Queue) SendMessage(MessageBody string) (resp *SendMessageResponse, err 
 	return
 }
 
-func (q *Queue) ReceiveMessage(MaxNumberOfMessages, VisibilityTimeout int) (resp *ReceiveMessageResponse, err os.Error) {
+// ReceiveMessageWithVisibilityTimeout 
+func (q *Queue) ReceiveMessageWithVisibilityTimeout(MaxNumberOfMessages, VisibilityTimeoutSec int) (resp *ReceiveMessageResponse, err error) {
 	resp = &ReceiveMessageResponse{}
 	params := makeParams("ReceiveMessage")
 
 	params["AttributeName"] = "All"
 	params["MaxNumberOfMessages"] = strconv.Itoa(MaxNumberOfMessages)
-	params["VisibilityTimeout"] = strconv.Itoa(VisibilityTimeout)
+	params["VisibilityTimeout"] = strconv.Itoa(VisibilityTimeoutSec)
 
 	err = q.SQS.query(q.Url, params, resp)
 	return
 }
 
-func (q *Queue) ChangeMessageVisibility(M *Message, VisibilityTimeout int) (resp *ChangeMessageVisibilityResponse, err os.Error) {
+// ReceiveMessage 
+func (q *Queue) ReceiveMessage(MaxNumberOfMessages int) (resp *ReceiveMessageResponse, err error) {
+	resp = &ReceiveMessageResponse{}
+	params := makeParams("ReceiveMessage")
+
+	params["AttributeName"] = "All"
+	params["MaxNumberOfMessages"] = strconv.Itoa(MaxNumberOfMessages)
+
+	err = q.SQS.query(q.Url, params, resp)
+	return
+}
+
+func (q *Queue) ChangeMessageVisibility(M *Message, VisibilityTimeout int) (resp *ChangeMessageVisibilityResponse, err error) {
 	resp = &ChangeMessageVisibilityResponse{}
 	params := makeParams("ChangeMessageVisibility")
 	params["VisibilityTimeout"] = strconv.Itoa(VisibilityTimeout)
@@ -188,7 +262,7 @@ func (q *Queue) ChangeMessageVisibility(M *Message, VisibilityTimeout int) (resp
 	return
 }
 
-func (q *Queue) GetQueueAttributes(A string) (resp *GetQueueAttributesResponse, err os.Error) {
+func (q *Queue) GetQueueAttributes(A string) (resp *GetQueueAttributesResponse, err error) {
 	resp = &GetQueueAttributesResponse{}
 	params := makeParams("GetQueueAttributes")
 	params["AttributeName"] = A
@@ -197,7 +271,7 @@ func (q *Queue) GetQueueAttributes(A string) (resp *GetQueueAttributesResponse, 
 	return
 }
 
-func (q *Queue) DeleteMessage(M *Message) (resp *DeleteMessageResponse, err os.Error) {
+func (q *Queue) DeleteMessage(M *Message) (resp *DeleteMessageResponse, err error) {
 	resp = &DeleteMessageResponse{}
 	params := makeParams("DeleteMessage")
 	params["ReceiptHandle"] = M.ReceiptHandle
@@ -206,10 +280,98 @@ func (q *Queue) DeleteMessage(M *Message) (resp *DeleteMessageResponse, err os.E
 	return
 }
 
-func (s *SQS) query(queueUrl string, params map[string]string, resp interface{}) os.Error {
-	params["Timestamp"] = time.UTC().Format(time.RFC3339)
+type SendMessageBatchResultEntry struct {
+	Id               string `xml:"Id"`
+	MessageId        string `xml:"MessageId"`
+	MD5OfMessageBody string `xml:"MD5OfMessageBody"`
+}
+
+type SendMessageBatchResponse struct {
+	SendMessageBatchResult []SendMessageBatchResultEntry `xml:"SendMessageBatchResult>SendMessageBatchResultEntry"`
+	ResponseMetadata       ResponseMetadata
+}
+
+/* SendMessageBatch 
+ */
+func (q *Queue) SendMessageBatch(msgList []Message) (resp *SendMessageBatchResponse, err error) {
+	resp = &SendMessageBatchResponse{}
+	params := makeParams("SendMessageBatch")
+
+	for idx, msg := range msgList {
+		count := idx + 1
+		params[fmt.Sprintf("SendMessageBatchRequestEntry.%d.Id", count)] = fmt.Sprintf("msg-%d", count)
+		params[fmt.Sprintf("SendMessageBatchRequestEntry.%d.MessageBody", count)] = msg.Body
+	}
+
+	err = q.SQS.query(q.Url, params, resp)
+	return
+}
+
+/* SendMessageBatchString 
+ */
+func (q *Queue) SendMessageBatchString(msgList []string) (resp *SendMessageBatchResponse, err error) {
+	resp = &SendMessageBatchResponse{}
+	params := makeParams("SendMessageBatch")
+
+	for idx, msg := range msgList {
+		count := idx + 1
+		params[fmt.Sprintf("SendMessageBatchRequestEntry.%d.Id", count)] = fmt.Sprintf("msg-%d", count)
+		params[fmt.Sprintf("SendMessageBatchRequestEntry.%d.MessageBody", count)] = msg
+	}
+
+	err = q.SQS.query(q.Url, params, resp)
+	return
+}
+
+type DeleteMessageBatchResponse struct {
+	DeleteMessageBatchResult []struct {
+		Id          string
+		SenderFault bool
+		Code        string
+		Message     string
+	}                `xml:"DeleteMessageBatchResult>DeleteMessageBatchResultEntry"`
+	ResponseMetadata ResponseMetadata
+}
+
+/* DeleteMessageBatch */
+func (q *Queue) DeleteMessageBatch(msgList []Message) (resp *DeleteMessageBatchResponse, err error) {
+	resp = &DeleteMessageBatchResponse{}
+	params := makeParams("DeleteMessageBatch")
+
+	lutMsg := make(map[string]Message)
+
+	for idx := range msgList {
+		params[fmt.Sprintf("DeleteMessageBatchRequestEntry.%d.Id", idx+1)] = msgList[idx].MessageId
+		params[fmt.Sprintf("DeleteMessageBatchRequestEntry.%d.ReceiptHandle", idx+1)] = msgList[idx].ReceiptHandle
+
+		lutMsg[string(msgList[idx].MessageId)] = msgList[idx]
+	}
+
+	err = q.SQS.query(q.Url, params, resp)
+
+	messageWithErrors := make([]Message, 0, len(msgList))
+
+	for idx := range resp.DeleteMessageBatchResult {
+		if resp.DeleteMessageBatchResult[idx].SenderFault {
+			msg, ok := lutMsg[resp.DeleteMessageBatchResult[idx].Id]
+			if ok {
+				messageWithErrors = append(messageWithErrors, msg)
+			}
+		}
+	}
+
+	if len(messageWithErrors) > 0 {
+		log.Printf("%d Message have not been sent", len(messageWithErrors))
+	}
+
+	return
+}
+
+func (s *SQS) query(queueUrl string, params map[string]string, resp interface{}) (err error) {
+	params["Version"] = "2011-10-01"
+	params["Timestamp"] = time.Now().In(time.UTC).Format(time.RFC3339)
 	var url_ *url.URL
-	var err os.Error
+
 	var path string
 	if queueUrl != "" {
 		url_, err = url.Parse(queueUrl)
@@ -228,30 +390,40 @@ func (s *SQS) query(queueUrl string, params map[string]string, resp interface{})
 	//}
 
 	sign(s.Auth, "GET", path, params, url_.Host)
+
 	url_.RawQuery = multimap(params).Encode()
+
+	if debug {
+		log.Printf("GET ", url_.String())
+	}
+
 	r, err := http.Get(url_.String())
 	if err != nil {
 		return err
 	}
+
 	defer r.Body.Close()
 
-	//dump, _ := http.DumpResponse(r, true)
-	//println("DUMP:\n", string(dump))
-	//return nil
+	if debug {
+		dump, _ := httputil.DumpResponse(r, true)
+		log.Printf("DUMP:\n", string(dump))
+	}
 
 	if r.StatusCode != 200 {
 		return buildError(r)
 	}
-	err = xml.Unmarshal(r.Body, resp)
+	err = xml.NewDecoder(r.Body).Decode(resp)
 	return err
 }
 
-func buildError(r *http.Response) os.Error {
+func buildError(r *http.Response) error {
 	errors := xmlErrors{}
-	xml.Unmarshal(r.Body, &errors)
+	xml.NewDecoder(r.Body).Decode(&errors)
 	var err Error
 	if len(errors.Errors) > 0 {
 		err = errors.Errors[0]
+	} else {
+		err = errors.Error
 	}
 	err.RequestId = errors.RequestId
 	err.StatusCode = r.StatusCode
