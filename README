@@ -1,5 +1,8 @@
-Amazon Simple Queue Service API Written in Golang.
+Amazon Simple Queue Service API Client Written in Golang.
+--------------------------------------------------
 
+* Docs:
+  http://godoc.org/github.com/Mistobaan/sqs
 
 # Installation
 

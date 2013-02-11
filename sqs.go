@@ -1,12 +1,12 @@
 //
-// goamz - Go packages to interact with the Amazon Web Services.
+// gosqs - Go packages to interact with the Amazon SQS Web Services.
 //
-//   https://wiki.ubuntu.com/goamz
+// depends on https://wiki.ubuntu.com/goamz
 //
-// Copyright (c) 2011 Memeo Inc.
 //
 // Written by Prudhvi Krishna Surapaneni <me@prudhvi.net>
-//
+// Extended by Fabrizio Milo <mistobaan@gmail.com>
+// 
 package sqs
 
 import (
@@ -32,6 +32,8 @@ type SQS struct {
 	private byte // Reserve the right of using private data.
 }
 
+// NewFrom Create A new SQS Client given an access and secret Key
+// region must be one of "us.east, us.west, eu.west"
 func NewFrom(accessKey, secretKey, region string) (*SQS, error) {
 
 	auth := aws.Auth{accessKey, secretKey}
@@ -52,10 +54,12 @@ func NewFrom(accessKey, secretKey, region string) (*SQS, error) {
 	return aws_sqs, nil
 }
 
+// NewFrom Create A new SQS Client from an exisisting aws.Auth 
 func New(auth aws.Auth, region aws.Region) *SQS {
 	return &SQS{auth, region, 0}
 }
 
+// Queue Reference to a Queue
 type Queue struct {
 	*SQS
 	Url string
@@ -148,10 +152,12 @@ type xmlErrors struct {
 	Error     Error
 }
 
+// CreateQueue create a queue with a specific name
 func (s *SQS) CreateQueue(queueName string) (*Queue, error) {
 	return s.CreateQueueWithTimeout(queueName, 30)
 }
 
+// CreateQueue create a queue with a specific name and a timeout
 func (s *SQS) CreateQueueWithTimeout(queueName string, timeout int) (q *Queue, err error) {
 	resp, err := s.newQueue(queueName, timeout)
 	if err != nil {
@@ -161,6 +167,7 @@ func (s *SQS) CreateQueueWithTimeout(queueName string, timeout int) (q *Queue, e
 	return
 }
 
+// GetQueue get a reference to the given quename
 func (s *SQS) GetQueue(queueName string) (*Queue, error) {
 	var q *Queue
 	resp, err := s.getQueueUrl(queueName)
