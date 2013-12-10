@@ -117,9 +117,14 @@ type ChangeMessageVisibilityResponse struct {
 	ResponseMetadata ResponseMetadata
 }
 
+type QueueAttribute struct {                                                                                                             
+        Name  string `xml:"Name"`
+        Value string `xml:"Value"`
+}
+
 type GetQueueAttributesResponse struct {
-	Attributes       []Attribute `xml:"GetQueueAttributesResult>Attribute"`
-	ResponseMetadata ResponseMetadata
+        Attributes       []QueueAttribute `xml:"GetQueueAttributesResult>Attribute"`                                                     
+        ResponseMetadata ResponseMetadata
 }
 
 type ResponseMetadata struct {
