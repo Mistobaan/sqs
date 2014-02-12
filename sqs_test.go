@@ -18,7 +18,7 @@ type S struct {
 
 func (s *S) SetUpSuite(c *gocheck.C) {
 	s.HTTPSuite.SetUpSuite(c)
-	auth := aws.Auth{"abc", "123"}
+	auth := aws.Auth{AccessKey:"abc", SecretKey:"123"}
 	s.sqs = sqs.New(auth, aws.Region{SQSEndpoint: testServer.URL})
 }
 
@@ -55,7 +55,7 @@ func (s *S) TestListQueues(c *gocheck.C) {
 func (s *S) TestDeleteQueue(c *gocheck.C) {
 	testServer.PrepareResponse(200, nil, TestDeleteQueueXmlOK)
 
-	q := &sqs.Queue{s.sqs, testServer.URL + "/123456789012/testQueue/"}
+	q := &sqs.Queue{SQS:s.sqs, Url:testServer.URL + "/123456789012/testQueue/"}
 	resp, err := q.Delete()
 	req := testServer.WaitRequest()
 
@@ -70,7 +70,7 @@ func (s *S) TestDeleteQueue(c *gocheck.C) {
 func (s *S) TestSendMessage(c *gocheck.C) {
 	testServer.PrepareResponse(200, nil, TestSendMessageXmlOK)
 
-	q := &sqs.Queue{s.sqs, testServer.URL + "/123456789012/testQueue/"}
+	q := &sqs.Queue{SQS:s.sqs, Url:testServer.URL + "/123456789012/testQueue/"}
 	resp, err := q.SendMessage("This is a test message")
 	req := testServer.WaitRequest()
 
@@ -89,7 +89,7 @@ func (s *S) TestSendMessage(c *gocheck.C) {
 func (s *S) TestSendMessageBatch(c *gocheck.C) {
 	testServer.PrepareResponse(200, nil, TestSendMessageBatchXmlOk)
 
-	q := &sqs.Queue{s.sqs, testServer.URL + "/123456789012/testQueue/"}
+	q := &sqs.Queue{SQS:s.sqs, Url:testServer.URL + "/123456789012/testQueue/"}
 
 	msgList := []string{"test message body 1", "test message body 2"}
 	resp, err := q.SendMessageBatchString(msgList)
@@ -111,7 +111,7 @@ func (s *S) TestSendMessageBatch(c *gocheck.C) {
 func (s *S) TestDeleteMessageBatch(c *gocheck.C) {
 	testServer.PrepareResponse(200, nil, TestDeleteMessageBatchXmlOK)
 
-	q := &sqs.Queue{s.sqs, testServer.URL + "/123456789012/testQueue/"}
+	q := &sqs.Queue{SQS:s.sqs, Url:testServer.URL + "/123456789012/testQueue/"}
 
 	msgList := []sqs.Message{*(&sqs.Message{ReceiptHandle: "gfk0T0R0waama4fVFffkjPQrrvzMrOg0fTFk2LxT33EuB8wR0ZCFgKWyXGWFoqqpCIiprQUEhir%2F5LeGPpYTLzjqLQxyQYaQALeSNHb0us3uE84uujxpBhsDkZUQkjFFkNqBXn48xlMcVhTcI3YLH%2Bd%2BIqetIOHgBCZAPx6r%2B09dWaBXei6nbK5Ygih21DCDdAwFV68Jo8DXhb3ErEfoDqx7vyvC5nCpdwqv%2BJhU%2FTNGjNN8t51v5c%2FAXvQsAzyZVNapxUrHIt4NxRhKJ72uICcxruyE8eRXlxIVNgeNP8ZEDcw7zZU1Zw%3D%3D"}),
 		*(&sqs.Message{ReceiptHandle: "gfk0T0R0waama4fVFffkjKzmhMCymjQvfTFk2LxT33G4ms5subrE0deLKWSscPU1oD3J9zgeS4PQQ3U30qOumIE6AdAv3w%2F%2Fa1IXW6AqaWhGsEPaLm3Vf6IiWqdM8u5imB%2BNTwj3tQRzOWdTOePjOjPcTpRxBtXix%2BEvwJOZUma9wabv%2BSw6ZHjwmNcVDx8dZXJhVp16Bksiox%2FGrUvrVTCJRTWTLc59oHLLF8sEkKzRmGNzTDGTiV%2BYjHfQj60FD3rVaXmzTsoNxRhKJ72uIHVMGVQiAGgB%2BqAbSqfKHDQtVOmJJgkHug%3D%3D"}),
@@ -133,7 +133,7 @@ func (s *S) TestDeleteMessageBatch(c *gocheck.C) {
 func (s *S) TestReceiveMessage(c *gocheck.C) {
 	testServer.PrepareResponse(200, nil, TestReceiveMessageXmlOK)
 
-	q := &sqs.Queue{s.sqs, testServer.URL + "/123456789012/testQueue/"}
+	q := &sqs.Queue{SQS:s.sqs, Url:testServer.URL + "/123456789012/testQueue/"}
 	resp, err := q.ReceiveMessage(5)
 	req := testServer.WaitRequest()
 
@@ -153,7 +153,7 @@ func (s *S) TestReceiveMessage(c *gocheck.C) {
 func (s *S) TestChangeMessageVisibility(c *gocheck.C) {
 	testServer.PrepareResponse(200, nil, TestReceiveMessageXmlOK)
 
-	q := &sqs.Queue{s.sqs, testServer.URL + "/123456789012/testQueue/"}
+	q := &sqs.Queue{SQS:s.sqs, Url:testServer.URL + "/123456789012/testQueue/"}
 
 	resp1, err := q.ReceiveMessage(1)
 	req := testServer.WaitRequest()
