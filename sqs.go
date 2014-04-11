@@ -36,7 +36,7 @@ type SQS struct {
 // region must be one of "us.east, us.west, eu.west"
 func NewFrom(accessKey, secretKey, region string) (*SQS, error) {
 
-	auth := aws.Auth{accessKey, secretKey}
+	auth := aws.Auth{AccessKey:accessKey, SecretKey:secretKey}
 	aws_region := aws.USEast
 
 	switch region {
@@ -61,7 +61,7 @@ func New(auth aws.Auth, region aws.Region) *SQS {
 
 // Queue Reference to a Queue
 type Queue struct {
-	*SQS
+	SQS *SQS
 	Url string
 }
 
@@ -168,7 +168,7 @@ func (s *SQS) CreateQueueWithTimeout(queueName string, timeout int) (q *Queue, e
 	if err != nil {
 		return nil, err
 	}
-	q = &Queue{s, resp.QueueUrl}
+	q = &Queue{SQS:s, Url:resp.QueueUrl}
 	return
 }
 
@@ -179,13 +179,13 @@ func (s *SQS) GetQueue(queueName string) (*Queue, error) {
 	if err != nil {
 		return q, err
 	}
-	q = &Queue{s, resp.QueueUrl}
+	q = &Queue{SQS:s, Url:resp.QueueUrl}
 	return q, nil
 }
 
 
 func (s *SQS) QueueFromArn(queueUrl string) (q *Queue) {
-	q = &Queue{s, queueUrl}
+	q = &Queue{SQS:s, Url:queueUrl}
 	return
 }
 
