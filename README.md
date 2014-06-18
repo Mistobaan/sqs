@@ -1,18 +1,7 @@
-Amazon Simple Queue Service API Client Written in Golang.
-=========================================================
+This Repository is DEPRECATED
+========================
 
-Docs
------
-http://godoc.org/github.com/Mistobaan/sqs
+development has moved to
 
+https://github.com/goamz/goamz
 
-Installation
-------------
-
-   go get github.com/Mistobaan/sqs
-
-
-Testing
--------
-
-   go test github.com/Mistobaan/sqs
